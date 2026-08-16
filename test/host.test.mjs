@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applyAgentOptions, applyCallConfig, applyContinuableSpec, isSubagent } from '../lib/logic.js'
+import { applyAgentOptions, applyCallConfig, applyContinuableSpec, isSubagent, shouldRetryWithFallback } from '../lib/logic.js'
 
 const cfg = {
   enabled: true,
@@ -66,6 +66,36 @@ test('applyContinuableSpec patches the nested request', () => {
   })
   assert.equal(next.provider, 'spawn')
   assert.equal(next.request.agentOptions.model, 'gpt-5.6-terra')
+})
+
+test('applyCallConfig can switch onto the fallback route', () => {
+  const next = applyCallConfig({
+    ...cfg,
+    fallbackProvider: 'codex-gateway',
+    fallbackModel: 'grok-4.6',
+    fallbackReasoningEffort: 'high',
+  }, {
+    provider: 'codex-gateway-subagent',
+    model: 'gpt-5.6-terra',
+    reasoningEffort: 'xhigh',
+  }, { useFallback: true })
+  assert.deepEqual(next, {
+    provider: 'codex-gateway',
+    model: 'grok-4.6',
+    reasoningEffort: 'high',
+  })
+})
+
+test('shouldRetryWithFallback is one-shot and skips abort', () => {
+  const withFallback = {
+    ...cfg,
+    fallbackProvider: 'codex-gateway',
+    fallbackModel: 'grok-4.6',
+  }
+  assert.equal(shouldRetryWithFallback(withFallback, false, { code: 'RATE_LIMIT' }), true)
+  assert.equal(shouldRetryWithFallback(withFallback, true, { code: 'RATE_LIMIT' }), false)
+  assert.equal(shouldRetryWithFallback(withFallback, false, { code: 'aborted' }), false)
+  assert.equal(shouldRetryWithFallback(cfg, false, { code: 'RATE_LIMIT' }), false)
 })
 
 test('isSubagent detects depth and origin', () => {

@@ -9,3 +9,6 @@
         provider: codex-gateway-subagent
         model: gpt-5.6-terra
         reasoningEffort: xhigh
+        fallbackProvider: ''
+        fallbackModel: ''
+        fallbackReasoningEffort: inherit

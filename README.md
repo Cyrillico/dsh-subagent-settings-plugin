@@ -1,59 +1,126 @@
-# dsh-subagent-settings-plugin
+# dsh-subagent-settings
 
-在 DeepSeek Harness **Web UI 设置页**里单独配置子代理的模型和思考强度。父会话当前选中的模型不受影响。
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)](package.json)
 
-保存后下一次 `subagent` / `subagent_fork` 请求立刻生效，不用改 preset、也不用重启。
+Configure **subagent** model, reasoning effort, and a fallback route from the DeepSeek Harness Web UI — without changing the parent session model.
 
-## 它改的是什么
+The panel lives on the official **Settings → Models** page. Edits stay as a draft until you click **Save**.
 
-官方子代理 `agentOptions` 只接受 `provider` / `model` / `maxTokens`，**没有** `reasoningEffort`。思考强度来自子代理走的那条 LLM 路由默认值，或来自子代理自己的 `agent/request`。
+[English](#install) · [中文](#安装)
 
-这个插件做两件事：
+---
 
-1. 在 `ctx.subagents.start` / `startContinuable` 上写入子代理的 `provider` + `model`
-2. 在子代理的 `agent/request` 上写入（或清掉）`reasoningEffort`
+## Why
 
-父会话（`delegationDepth === 0`）不会被改。
+DSH lets you pick the parent model in the UI. Child agents started with `subagent` / `subagent_fork` do not get the same picker. Their route is usually baked into an agent preset (`provider` + `model` only). Reasoning effort is not part of `agentOptions`; it comes from the child route default or the request waterfall.
 
-## 安装
+This plugin gives you a first-class UI for those children, and retries once on a fallback model if the primary request fails.
 
-本机 Web profile：
+## Features
 
-```sh
-dsh plugin --profile web add /absolute/path/to/dsh-subagent-settings-plugin
-```
+- Set subagent **provider**, **model**, and **reasoning effort** independently of the parent session
+- Optional **fallback** provider/model used automatically after the first child request fails (cancel/abort does not trigger it)
+- Draft / save workflow: unsaved fields show a red dot; leaving the page asks whether to keep the changes
+- Parent sessions (`delegationDepth === 0`) are never rewritten
+- Changes apply to the next spawn/fork after save — no preset copy required
 
-或 GitHub：
+## Requirements
+
+- [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh) `0.1.x` (tested on `0.1.0-rc.6`)
+- Node.js 18+
+- The **web** profile (`dsh web`)
+
+## Install
+
+From GitHub (recommended):
 
 ```sh
 dsh plugin --profile web add github:Cyrillico/dsh-subagent-settings-plugin
 ```
 
-然后重启 `dsh web`。打开设置，侧栏会出现 **「子代理模型」**。
-
-## 设置项
-
-| 字段 | 含义 |
-| --- | --- |
-| 启用覆盖 | 关闭后完全走 preset / 父会话默认 |
-| 跟随父会话模型 | 不再强制子代理 provider/model，仍可单独改思考强度 |
-| Provider | 子代理路由，例如 `codex-gateway-subagent` |
-| 模型 | 子代理模型，例如 `gpt-5.6-terra` / `grok-4.6` |
-| 思考强度 | `inherit` / `low` / `medium` / `high` / `xhigh` / `max` |
-
-值写在 `$DSH_HOME/settings.yaml` 的 `dsh-subagent-settings:` 段，不含密钥。
-
-Web UI 不走官方 `settings.describe` 白名单（第三方命名空间默认不会暴露给浏览器），而是通过本插件自己的 `GET/PUT /dsh-subagent-settings` 读写宿主设置。
-
-## 开发
+From a local checkout:
 
 ```sh
-npm test
-npm run build
+dsh plugin --profile web add /absolute/path/to/dsh-subagent-settings-plugin
 ```
 
-Host 是普通 ESM；Client 是 DSH `window.__ModuleLoader__` 工厂（和 `dsh-pet` 一样，无需打包器）。
+Restart the Web UI once so the host half can load:
 
-## 不要提交
+```sh
+dsh web
+```
 
-密钥、`auth.json`、`settings.yaml`、`config.toml`、会话与附件目录。仓库 `.gitignore` 已排除。
+Then open **Settings → Models** and scroll to **Subagent models**.
+
+## Configure
+
+| Control | What it does |
+| --- | --- |
+| Override children | Master switch. Off = keep preset / parent defaults |
+| Follow parent model | Do not force child provider/model; reasoning and fallback still apply |
+| Provider / Model | Primary child route, e.g. `codex-gateway-subagent` + `gpt-5.6-terra` |
+| Reasoning effort | `inherit`, `low`, `medium`, `high`, `xhigh`, `max` |
+| Fallback provider / model | Used for one automatic retry if the primary child request fails |
+| Fallback reasoning | Effort on the retry; `inherit` reuses the primary effort |
+
+Click **Save** to write the values. **Discard** reverts the draft.
+
+Saved values live in `$DSH_HOME/settings.yaml` under `dsh-subagent-settings:`.
+
+```yaml
+dsh-subagent-settings:
+  enabled: true
+  inheritParent: false
+  provider: codex-gateway-subagent
+  model: gpt-5.6-terra
+  reasoningEffort: xhigh
+  fallbackProvider: codex-gateway
+  fallbackModel: grok-4.6
+  fallbackReasoningEffort: inherit
+```
+
+You can edit that section by hand if you prefer the file over the UI. Restart is only needed after **installing** or **upgrading** the plugin, not after changing these fields.
+
+## How it works
+
+1. Host registers the settings and intercepts `ctx.subagents.start` / `startContinuable` so new children get the primary route.
+2. `agent/request` stamps reasoning effort onto child calls only.
+3. `agent/request-error` retries **once** on the fallback route when the primary call fails.
+4. The Web UI talks to `GET`/`PUT /dsh-subagent-settings` (third-party namespaces are not on the official settings allowlist).
+
+## Development
+
+```sh
+git clone https://github.com/Cyrillico/dsh-subagent-settings-plugin.git
+cd dsh-subagent-settings-plugin
+npm test
+```
+
+The host half is plain ESM. The browser half is a DSH `window.__ModuleLoader__` factory — no bundler required.
+
+## License
+
+MIT
+
+---
+
+## 安装
+
+```sh
+dsh plugin --profile web add github:Cyrillico/dsh-subagent-settings-plugin
+```
+
+本地目录：
+
+```sh
+dsh plugin --profile web add /绝对路径/dsh-subagent-settings-plugin
+```
+
+安装或升级后重启一次 `dsh web`。打开 **设置 → 模型**，拉到 **子代理模型**。
+
+## 配置
+
+在面板里选择子代理的 Provider、模型、思考强度，以及可选的 Fallback。改完点 **保存** 才会生效；未保存的项会打红点，离开页面会询问是否保存。
+
+配置写入 `$DSH_HOME/settings.yaml` 的 `dsh-subagent-settings` 段。只改这项配置不需要再重启；只有安装/升级插件后才需要重启 Web UI。
