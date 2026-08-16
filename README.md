@@ -29,7 +29,3 @@ npm run build
 1. 把插件放到 Dsh 的插件目录
 2. 重启 Web UI
 3. 在任意聊天里创建/编辑子代理时，设置面板会显示新控件
-
-## 警告
-- 不要把 `key/`、`private_keys/`、`grok.txt` 等敏感文件上传到 GitHub
-- 本仓库只包含源代码和配置文件
