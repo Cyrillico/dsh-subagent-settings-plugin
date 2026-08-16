@@ -1,0 +1,63 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Build outputs
+/dist
+/build
+/out
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.DS_Store?
+Thumbs.db
+
+# GitHub
+.github/
+*.md  # except README.md in root
+README.md  # allow README.md in root
+
+# Dsh specific
+*.patch.yml
+*.yml.bak
+storages/
+attachments/
+sessions/
+settings.yaml
+code/
+config.toml
+
+# Secret files
+key/
+private_keys/
+grok.txt
+*.txt  # except README.md
+
+# Temporary files
+*.log
+tmp/
+output/
+plugin-detail-page-*.js
+plugins-page-*.js
+plugin-detail-page-*.js
+plugins-settings-*.js
+plugin-detail-page-rApR_vTc.js
+plugin-detail-page-BZVYeV3B.js
