@@ -12,3 +12,4 @@
         fallbackProvider: ''
         fallbackModel: ''
         fallbackReasoningEffort: inherit
+        maxConcurrent: 0

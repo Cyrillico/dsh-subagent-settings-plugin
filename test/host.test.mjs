@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applyAgentOptions, applyCallConfig, applyContinuableSpec, isSubagent, shouldRetryWithFallback } from '../lib/logic.js'
+import { applyAgentOptions, applyCallConfig, applyContinuableSpec, isSubagent, shouldRetryWithFallback, createConcurrencyGate, normalizeMaxConcurrent } from '../lib/logic.js'
 
 const cfg = {
   enabled: true,
@@ -96,6 +96,31 @@ test('shouldRetryWithFallback is one-shot and skips abort', () => {
   assert.equal(shouldRetryWithFallback(withFallback, true, { code: 'RATE_LIMIT' }), false)
   assert.equal(shouldRetryWithFallback(withFallback, false, { code: 'aborted' }), false)
   assert.equal(shouldRetryWithFallback(cfg, false, { code: 'RATE_LIMIT' }), false)
+})
+
+test('normalizeMaxConcurrent treats 0 and junk as unlimited', () => {
+  assert.equal(normalizeMaxConcurrent(0), 0)
+  assert.equal(normalizeMaxConcurrent(''), 0)
+  assert.equal(normalizeMaxConcurrent(4.8), 4)
+  assert.equal(normalizeMaxConcurrent(8), 8)
+})
+
+test('createConcurrencyGate queues the overflow start', async () => {
+  const gate = createConcurrencyGate()
+  await gate.acquire(1)
+  assert.equal(gate.active, 1)
+  let released = false
+  const waiting = gate.acquire(1).then(() => {
+    released = true
+  })
+  await new Promise((resolve) => setTimeout(resolve, 15))
+  assert.equal(released, false)
+  gate.release()
+  await waiting
+  assert.equal(released, true)
+  assert.equal(gate.active, 1)
+  gate.release()
+  assert.equal(gate.active, 0)
 })
 
 test('isSubagent detects depth and origin', () => {
